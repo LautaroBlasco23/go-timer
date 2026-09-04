@@ -1,0 +1,46 @@
+{{ define "sidebar" }}
+<aside id="sidebar" class="sidebar" data-selected="{{ .SelectedID }}">
+{{ template "sidebarInner" . }}
+</aside>
+{{ end }}
+
+{{ define "sidebarOOB" }}
+<aside id="sidebar" class="sidebar" data-selected="{{ .SelectedID }}" hx-swap-oob="true">
+{{ template "sidebarInner" . }}
+</aside>
+{{ end }}
+
+{{ define "sidebarInner" }}
+<header class="sidebar-header">
+<h2>Timers</h2>
+</header>
+<form class="new-timer" hx-post="/timers" hx-target="#sidebar" hx-swap="outerHTML">
+<input type="text" name="name" placeholder="New timer name" required maxlength="40" autocomplete="off">
+<div class="kind-row">
+<label class="kind-opt" title="Chronometer (counts up)">
+<input type="radio" name="kind" value="stopwatch" checked
+onchange="this.closest('.new-timer').querySelector('input[name=duration]').required = false">⏱
+</label>
+<label class="kind-opt" title="Timer (counts down)">
+<input type="radio" name="kind" value="countdown"
+onchange="this.closest('.new-timer').querySelector('input[name=duration]').required = true">⏳
+</label>
+<input type="text" name="duration" class="duration-input" placeholder="45m" autocomplete="off" spellcheck="false">
+<button type="submit" aria-label="Add timer">＋</button>
+</div>
+</form>
+<nav class="cards">
+{{ range .Timers }}
+<div class="card{{ if eq .ID $.SelectedID }} selected{{ end }}">
+<button class="card-select" hx-get="/timers/{{ .ID }}" hx-target="#panel" hx-swap="outerHTML">
+<span class="card-kind">{{ if .IsCountdown }}⏳{{ else }}⏱{{ end }}</span>
+<span class="card-name">{{ .Name }}</span>
+<span class="card-time" id="card-time-{{ .ID }}">{{ if .IsCountdown }}{{ formatDuration .Remaining }}{{ else }}{{ formatDuration .Elapsed }}{{ end }}</span>
+</button>
+<button class="card-delete" aria-label="Delete {{ .Name }}" data-id="{{ .ID }}" onclick="openDeleteModal(this)">✕</button>
+</div>
+{{ else }}
+<p class="cards-empty">No timers yet.</p>
+{{ end }}
+</nav>
+{{ end }}

@@ -1,0 +1,29 @@
+{{ define "display" }}
+<div class="display" id="display"
+data-kind="{{ if .IsCountdown }}countdown{{ else }}stopwatch{{ end }}"
+data-step="{{ .CurrentStep }}"
+data-status="{{ .Status }}"
+hx-get="/timers/{{ .ID }}/display"
+hx-trigger="every 1s"
+hx-swap="outerHTML">
+{{ template "displayInner" . }}
+</div>
+{{ end }}
+
+{{ define "displayInner" }}
+{{ if .IsCountdown }}
+{{ if .CurrentStepName }}<span class="step-label">{{ .CurrentStepName }}</span>{{ end }}
+<span class="time">{{ formatDuration .StepRemaining }}</span>
+{{ if eq .Status "done" }}
+<span class="done-badge">Done</span>
+{{ else }}
+<span class="status-dot {{ .Status }}" title="{{ .Status }}"></span>
+{{ end }}
+{{ else }}
+<span class="time">{{ formatDuration .Elapsed }}</span>
+<span class="status-dot {{ .Status }}" title="{{ .Status }}"></span>
+{{ end }}
+{{ end }}
+
+{{ define "cardTimesOOB" }}{{ range . }}<span class="card-time" id="card-time-{{ .ID }}" hx-swap-oob="true">{{ if .IsCountdown }}{{ formatDuration .Remaining }}{{ else }}{{ formatDuration .Elapsed }}{{ end }}</span>
+{{ end }}{{ end }}

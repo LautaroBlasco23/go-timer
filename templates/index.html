@@ -1,0 +1,99 @@
+{{ define "index" }}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>go-timer</title>
+<script src="/assets/htmx.min.js"></script>
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="app">
+{{ template "sidebar" . }}
+{{ template "panel" . }}
+</div>
+<div id="modal-backdrop" class="modal-backdrop" hidden>
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+<h3 id="modal-title">Delete timer</h3>
+<p>Delete <strong id="modal-name"></strong>? This cannot be undone.</p>
+<div class="modal-actions">
+<button class="btn" id="modal-cancel">Cancel</button>
+<button class="btn btn-danger" id="modal-confirm">Delete</button>
+</div>
+</div>
+</div>
+<script>
+(function () {
+  var backdrop = document.getElementById("modal-backdrop");
+  var confirmBtn = document.getElementById("modal-confirm");
+  var nameEl = document.getElementById("modal-name");
+  var pendingId = null;
+
+  function open(id, name) {
+    pendingId = id;
+    nameEl.textContent = name;
+    backdrop.hidden = false;
+    confirmBtn.focus();
+  }
+  window.openDeleteModal = function (btn) {
+    var card = btn.closest(".card");
+    var name = card ? card.querySelector(".card-name").textContent.trim() : "this timer";
+    open(btn.dataset.id, name);
+  };
+  function close() { backdrop.hidden = true; }
+
+  document.getElementById("modal-cancel").addEventListener("click", close);
+  backdrop.addEventListener("click", function (e) { if (e.target === backdrop) close(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !backdrop.hidden) close();
+  });
+  confirmBtn.addEventListener("click", function () {
+    if (!pendingId) return;
+    var sel = document.getElementById("sidebar").dataset.selected || "";
+    htmx.ajax("DELETE", "/timers/" + pendingId + "?sel=" + sel, { target: "#sidebar", swap: "outerHTML" });
+    close();
+  });
+})();
+</script>
+<script>
+(function () {
+  var ctx = null, last = null;
+  function ensureCtx() {
+    if (!ctx) {
+      try { ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch (e) { return null; }
+    }
+    if (ctx.state === "suspended") ctx.resume();
+    return ctx;
+  }
+  // AudioContext needs a user gesture; create/resume on any click.
+  document.addEventListener("click", ensureCtx);
+  function beep(freq, dur) {
+    var c = ensureCtx();
+    if (!c) return;
+    var o = c.createOscillator(), g = c.createGain();
+    o.type = "sine";
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.3, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+    o.connect(g).connect(c.destination);
+    o.start();
+    o.stop(c.currentTime + dur);
+  }
+  document.body.addEventListener("htmx:afterSwap", function (e) {
+    var el = e.detail && e.detail.target;
+    if (!el || el.id !== "display") return;
+    var kind = el.getAttribute("data-kind");
+    var key = el.getAttribute("data-step") + "/" + el.getAttribute("data-status");
+    if (last && kind === "countdown" && key !== last) {
+      if (el.getAttribute("data-status") === "done") beep(880, 0.6);
+      else beep(660, 0.25);
+    }
+    last = key;
+  });
+})();
+</script>
+</body>
+</html>
+{{ end }}

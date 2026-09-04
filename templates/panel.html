@@ -1,0 +1,112 @@
+{{ define "panel" }}
+<main id="panel" class="panel">
+{{ template "panelInner" . }}
+</main>
+{{ end }}
+
+{{ define "panelOOB" }}
+<main id="panel" class="panel" hx-swap-oob="true">
+{{ template "panelInner" . }}
+</main>
+{{ end }}
+
+{{ define "panelInner" }}
+{{ if .Selected }}
+{{ with .Selected }}
+<div class="timer-view">
+<h1 class="timer-name">{{ .Name }}</h1>
+<div class="ring-wrap">
+<svg class="ring" viewBox="0 0 200 200" aria-hidden="true">
+<circle class="ring-track" cx="100" cy="100" r="88"/>
+{{ if .IsCountdown }}
+<circle class="ring-progress" cx="100" cy="100" r="88" pathLength="100"
+stroke-dasharray="100" stroke-dashoffset="{{ .RingOffset }}"/>
+{{ else }}
+<circle class="ring-accent" cx="100" cy="100" r="88"/>
+{{ end }}
+</svg>
+{{ template "display" . }}
+</div>
+<div class="controls">
+{{ if eq .Status "running" }}
+<button class="btn btn-pause" hx-post="/timers/{{ .ID }}/pause" hx-target="#panel" hx-swap="outerHTML">Pause</button>
+{{ else if eq .Status "done" }}
+<button class="btn btn-start" hx-post="/timers/{{ .ID }}/start" hx-target="#panel" hx-swap="outerHTML">Restart</button>
+{{ else }}
+<button class="btn btn-start" hx-post="/timers/{{ .ID }}/start" hx-target="#panel" hx-swap="outerHTML">Start</button>
+{{ end }}
+{{ if and .IsCountdown (eq .Status "running") }}
+<button class="btn btn-skip" hx-post="/timers/{{ .ID }}/skip" hx-target="#panel" hx-swap="outerHTML">Skip »</button>
+{{ end }}
+{{ if and (not .IsCountdown) (eq .Status "running") }}
+<button class="btn btn-lap" hx-post="/timers/{{ .ID }}/lap" hx-target="#panel" hx-swap="outerHTML">Lap</button>
+{{ end }}
+<button class="btn btn-reset" hx-post="/timers/{{ .ID }}/reset" hx-target="#panel" hx-swap="outerHTML">Reset</button>
+</div>
+{{ if .IsCountdown }}
+{{ template "registry" . }}
+{{ else }}
+{{ template "laps" . }}
+{{ end }}
+</div>
+{{ end }}
+{{ else }}
+<div class="empty">
+<p class="empty-title">No timer selected</p>
+<p>Create a timer using the form on the left.</p>
+</div>
+{{ end }}
+{{ end }}
+
+{{ define "registry" }}
+<section class="registry">
+<h3>Activities</h3>
+{{ if .Editable }}
+<form class="step-add" hx-post="/timers/{{ .ID }}/steps" hx-target="#panel" hx-swap="outerHTML">
+<input type="text" name="name" placeholder="Activity" required maxlength="40" autocomplete="off">
+<input type="text" name="duration" placeholder="10m" required autocomplete="off" spellcheck="false">
+<button type="submit" aria-label="Add activity">＋</button>
+</form>
+{{ end }}
+<ol class="steps">
+{{ range $i, $s := .Steps }}
+<li class="step{{ if eq $i $.CurrentStep }} current{{ end }}{{ if lt $i $.CurrentStep }} past{{ end }}">
+{{ if $.Editable }}
+<span class="step-move">
+<button class="step-btn" aria-label="Move up" hx-post="/timers/{{ $.ID }}/steps/{{ $i }}/move/up" hx-target="#panel" hx-swap="outerHTML">↑</button>
+<button class="step-btn" aria-label="Move down" hx-post="/timers/{{ $.ID }}/steps/{{ $i }}/move/down" hx-target="#panel" hx-swap="outerHTML">↓</button>
+</span>
+{{ end }}
+<span class="step-name">{{ $s.Name }}</span>
+<span class="step-duration">{{ formatDuration $s.Duration }}</span>
+{{ if $.Editable }}
+<button class="step-btn step-delete" aria-label="Delete {{ $s.Name }}" hx-delete="/timers/{{ $.ID }}/steps/{{ $i }}" hx-target="#panel" hx-swap="outerHTML">✕</button>
+{{ else if lt $i $.CurrentStep }}
+<span class="step-done">✓</span>
+{{ else if eq $i $.CurrentStep }}
+<span class="step-now">▶</span>
+{{ end }}
+</li>
+{{ else }}
+<li class="step step-none">No activities yet — add one above.</li>
+{{ end }}
+</ol>
+</section>
+{{ end }}
+
+{{ define "laps" }}
+{{ if .Laps }}
+<section class="laps">
+<h3>Laps</h3>
+<ol class="lap-list">
+{{ range .LapsDesc }}
+<li class="lap">
+<span class="lap-n">#{{ .N }}</span>
+<span class="lap-split">{{ formatDuration .Split }}</span>
+<span class="lap-total">{{ formatDuration .Total }}</span>
+</li>
+{{ end }}
+</ol>
+</section>
+{{ end }}
+{{ end }}
