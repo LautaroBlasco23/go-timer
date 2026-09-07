@@ -57,6 +57,8 @@ go build -o go-timer .
 
 ## How it works
 
+![Architecture diagram](docs/architecture.svg)
+
 ### Lazily computed time
 
 Timers don't tick. There are no background goroutines or per-second updates on
