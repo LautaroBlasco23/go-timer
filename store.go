@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -26,7 +27,20 @@ const (
 // ErrNotFound is returned when a timer id does not exist.
 var ErrNotFound = errors.New("timer not found")
 
-const dataFile = "timers.json"
+// defaultDataPath returns the default timers.json location:
+// $XDG_DATA_HOME/go-timer/timers.json, falling back to
+// ~/.local/share/go-timer/timers.json.
+func defaultDataPath() (string, error) {
+	dir := os.Getenv("XDG_DATA_HOME")
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		dir = filepath.Join(home, ".local", "share")
+	}
+	return filepath.Join(dir, "go-timer", "timers.json"), nil
+}
 
 // Step is one activity in a countdown routine stack.
 type Step struct {
@@ -160,12 +174,24 @@ func (t Timer) LapsDesc() []Lap {
 // Store is a thread-safe collection of timers persisted to a JSON file.
 type Store struct {
 	mu     sync.Mutex
+	path   string
 	timers []Timer
 }
 
-func NewStore() (*Store, error) {
-	s := &Store{}
-	b, err := os.ReadFile(dataFile)
+// NewStore loads the timers from path, creating parent directories as
+// needed. An empty path selects defaultDataPath.
+func NewStore(path string) (*Store, error) {
+	if path == "" {
+		var err error
+		if path, err = defaultDataPath(); err != nil {
+			return nil, err
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, err
+	}
+	s := &Store{path: path}
+	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return s, nil
 	}
@@ -173,7 +199,7 @@ func NewStore() (*Store, error) {
 		return nil, err
 	}
 	if err := json.Unmarshal(b, &s.timers); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", dataFile, err)
+		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	return s, nil
 }
@@ -184,7 +210,7 @@ func (s *Store) save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dataFile, b, 0o644)
+	return os.WriteFile(s.path, b, 0o644)
 }
 
 // normalizeAt advances a running countdown past any expired steps, carrying

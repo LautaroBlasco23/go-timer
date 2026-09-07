@@ -12,22 +12,48 @@ binary). It supports two kinds of timers:
 
 All state is persisted to `timers.json` in the working directory.
 
-## Running
+## Installing
 
-Requires Go 1.22+.
+Requires Go 1.22+ and git on the target machine.
 
 ```sh
-go run .
+curl -fsSL https://raw.githubusercontent.com/LautaroBlasco23/go-timer/main/install.sh | sh
 ```
 
-Then open http://localhost:8080. To build a static binary:
+The script clones this repo, builds a static binary and installs it to
+`~/.local/bin/go-timer` (override with `PREFIX=/path sh install.sh`). Assets
+and templates are embedded with `go:embed`, so the binary is fully
+self-contained.
+
+## Running
+
+Run `go-timer` anywhere: it starts the server detached in the background and
+opens the browser on http://localhost:18080. Running it again while the
+server is up just opens the browser — no second instance.
+
+Flags:
+
+| Flag           | Default                                    | Purpose                                                |
+| -------------- | ------------------------------------------ | ------------------------------------------------------ |
+| `-port`        | `18080`                                    | HTTP port                                              |
+| `-data`        | `$XDG_DATA_HOME/go-timer/timers.json`      | Data file (fallback `~/.local/share/go-timer/`)        |
+| `-foreground`  | off                                        | Run the server in the foreground (dev, logs to stdout) |
+
+The detached server logs to `$XDG_STATE_HOME/go-timer/server.log`
+(fallback `~/.local/state/go-timer/`).
+
+Data used to be stored in `timers.json` in the working directory; migrate it
+once with:
+
+```sh
+mkdir -p ~/.local/share/go-timer && mv timers.json ~/.local/share/go-timer/
+```
+
+To build manually:
 
 ```sh
 go build -o go-timer .
 ```
-
-Assets and templates are embedded with `go:embed`, so the binary is fully
-self-contained.
 
 ## How it works
 
@@ -86,7 +112,7 @@ store.go      Timer model, Store (mutex + JSON persistence), state transitions
 handlers.go   HTTP handlers, htmx fragment rendering
 templates/    HTML templates (embedded)
 assets/       style.css, htmx.min.js (embedded)
-timers.json   data file (created at runtime)
+timers.json   data file, in ~/.local/share/go-timer/ (created at runtime)
 ```
 
 Note: `timers.json` stores durations in nanoseconds and keeps a single
