@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -158,16 +159,47 @@ func serverLogPath() (string, error) {
 // openBrowser opens url in the system browser. Failure is logged, never
 // fatal (e.g. headless machines).
 func openBrowser(url string) {
-	var cmd *exec.Cmd
+	var argv [][]string
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", url)
+		argv = [][]string{{"open", url}}
 	default:
-		cmd = exec.Command("xdg-open", url)
+		argv = pickOpener(url, isWSL())
 	}
-	if err := cmd.Start(); err != nil {
-		log.Printf("could not open browser: %v (open %s manually)", err, url)
+	for _, a := range argv {
+		cmd := exec.Command(a[0], a[1:]...)
+		if err := cmd.Start(); err != nil {
+			continue
+		}
+		cmd.Process.Release()
 		return
 	}
-	cmd.Process.Release()
+	log.Printf("could not open browser (open %s manually)", url)
+}
+
+// pickOpener returns the candidate argv lists for opening url, in preference
+// order. On WSL the Windows browser is opened via wslview (wslu) if present,
+// falling back to cmd.exe through WSL interop, then xdg-open.
+func pickOpener(url string, wsl bool) [][]string {
+	var argv [][]string
+	if wsl {
+		if _, err := exec.LookPath("wslview"); err == nil {
+			argv = append(argv, []string{"wslview", url})
+		}
+		if _, err := exec.LookPath("cmd.exe"); err == nil {
+			argv = append(argv, []string{"cmd.exe", "/c", "start", url})
+		}
+	}
+	argv = append(argv, []string{"xdg-open", url})
+	return argv
+}
+
+// isWSL reports whether the process is running under Windows Subsystem for
+// Linux (either WSL1 or WSL2).
+func isWSL() bool {
+	if os.Getenv("WSL_DISTRO_NAME") != "" {
+		return true
+	}
+	osrelease, err := os.ReadFile("/proc/sys/kernel/osrelease")
+	return err == nil && strings.Contains(strings.ToLower(string(osrelease)), "microsoft")
 }
