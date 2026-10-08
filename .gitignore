@@ -17,6 +17,9 @@ timers.json
 # Output of go coverage
 *.out
 
+# Air (hot reload) build output
+tmp/
+
 # Go workspace
 go.work
 go.work.sum
